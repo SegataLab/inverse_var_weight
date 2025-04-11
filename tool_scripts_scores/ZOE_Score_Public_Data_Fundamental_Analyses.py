@@ -57,6 +57,49 @@ class Ranks(object):
     cardi0_sc0res = cardi0_sc0res.sort_values()
     diet_sc0res   = diet_sc0res.sort_values()
 
+    N = 50
+ 
+    #relab = self.relab_OUT.copy(deep=True)
+
+    self.relab_OUT = self.relab_OUT.rename(index=dict([(i, i.split("t__")[1]) for i in self.relab_OUT.index if ("t__" in i)]))
+
+    self.relab_OUT.loc["count_of_good_cardio"] = np.count_nonzero( self.relab_OUT.loc[ cardi0_sc0res[ :N ].index ].values.astype(float), axis=0)
+    self.relab_OUT.loc["count_of_bad_cardio"]  = np.count_nonzero( self.relab_OUT.loc[ cardi0_sc0res[ -N: ].index ].values.astype(float), axis=0)
+    self.relab_OUT.loc["count_of_good_diet"]   = np.count_nonzero( self.relab_OUT.loc[ diet_sc0res[ :N ].index ].values.astype(float), axis=0)
+    self.relab_OUT.loc["count_of_bad_diet"]    = np.count_nonzero( self.relab_OUT.loc[ diet_sc0res[ -N: ].index ].values.astype(float), axis=0)
+
+    self.relab_OUT.loc["percentile_count_of_good_cardio"] = [sts.percentileofscore( self.relab_OUT.loc["count_of_good_cardio", self.relab_OUT.loc["study_identifier"]==std].values.astype(float) \
+        , x)/100. for x,std in zip(self.relab_OUT.loc["count_of_good_cardio"].values.astype(float), self.relab_OUT.loc["study_identifier"].tolist())    ]
+    self.relab_OUT.loc["percentile_count_of_bad_cardio"] = [sts.percentileofscore( self.relab_OUT.loc["count_of_bad_cardio", self.relab_OUT.loc["study_identifier"]==std].values.astype(float) \
+        , x)/100. for x,std in zip(self.relab_OUT.loc["count_of_bad_cardio"].values.astype(float), self.relab_OUT.loc["study_identifier"].tolist())    ]
+    self.relab_OUT.loc["percentile_count_of_good_diet"] = [sts.percentileofscore( self.relab_OUT.loc["count_of_good_diet", self.relab_OUT.loc["study_identifier"]==std].values.astype(float) \
+        , x)/100. for x,std in zip(self.relab_OUT.loc["count_of_good_diet"].values.astype(float), self.relab_OUT.loc["study_identifier"].tolist())    ]
+    self.relab_OUT.loc["percentile_count_of_bad_diet"] = [sts.percentileofscore( self.relab_OUT.loc["count_of_bad_diet", self.relab_OUT.loc["study_identifier"]==std].values.astype(float) \
+        , x)/100. for x,std in zip(self.relab_OUT.loc["count_of_bad_diet"].values.astype(float), self.relab_OUT.loc["study_identifier"].tolist())    ]
+
+    self.relab_OUT.loc["cumul_of_good_cardio"] = np.sum( self.relab_OUT.loc[ cardi0_sc0res[ :N ].index ].values.astype(float), axis=0) #/ 100.
+    self.relab_OUT.loc["cumul_of_bad_cardio"]  = np.sum( self.relab_OUT.loc[ cardi0_sc0res[ -N: ].index ].values.astype(float), axis=0) #/ 100.
+    self.relab_OUT.loc["cumul_of_good_diet"]   = np.sum( self.relab_OUT.loc[ diet_sc0res[ :N ].index ].values.astype(float), axis=0) #/ 100.
+    self.relab_OUT.loc["cumul_of_bad_diet"]    = np.sum( self.relab_OUT.loc[ diet_sc0res[ -N: ].index ].values.astype(float), axis=0) #/ 100.
+
+    all_cols = ["count_of_good_cardio", "count_of_bad_cardio", "count_of_good_diet", "count_of_bad_diet", "percentile_count_of_good_cardio", "percentile_count_of_bad_cardio", \
+        "percentile_count_of_good_diet", "percentile_count_of_bad_diet", "cumul_of_good_cardio", "cumul_of_bad_cardio", "cumul_of_good_diet", "cumul_of_bad_diet" ]
+ 
+    cardio_zeroone_good = ((cardi0_sc0res.sort_values() - cardi0_sc0res.max()) / (cardi0_sc0res.min() - cardi0_sc0res.max())).to_dict()
+    cardio_zeroone_bad  = ((cardi0_sc0res.sort_values() - cardi0_sc0res.min()) / (cardi0_sc0res.max() - cardi0_sc0res.min())).to_dict()
+    cardio_oneone       = (((1 - (-1)) / (cardi0_sc0res.max() - cardi0_sc0res.min()) * (cardi0_sc0res.sort_values() - cardi0_sc0res.max()) + 1) * -1).to_dict()
+
+    diet_zeroone_good   = ((diet_sc0res.sort_values() - diet_sc0res.max()) / (diet_sc0res.min() - diet_sc0res.max())).to_dict()
+    diet_zeroone_bad    = ((diet_sc0res.sort_values() - diet_sc0res.min()) / (diet_sc0res.max() - diet_sc0res.min())).to_dict()
+    diet_oneone         = (((1 - (-1)) / (diet_sc0res.max() - diet_sc0res.min()) * (diet_sc0res.sort_values() - diet_sc0res.max()) + 1) * -1).to_dict()
+
+    relab = self.relab_OUT.copy(deep=True)
+
+    studies = ["FengQ_2015_in_AUT", "GuptaA_2019_in_IND", "HanniganGD_2017_in_USA", "HanniganGD_2017_in_CAN", "HeQ_2017_in_CHN", "JieZ_2017_in_CHN", "KarlssonFH_2013_in_SWE", \
+        "MetaCardis_2020_a_in_FRA", "MetaCardis_2020_a_in_DEU", "NielsenHB_2014_in_DNK", "NielsenHB_2014_in_ESP", "QinJ_2012_in_CHN", "QinN_2014_in_CHN", "ThomasAM_2018a_in_ITA", \
+        "ThomasAM_2018b_in_ITA", "VogtmannE_2016_in_USA", "WirbelJ_2018_in_DEU", "XuQ_2021_in_CHN", "YachidaS_2019_in_JPN", "YuJ_2015_in_CHN", "ZellerG_2014_in_FRA", \
+        "SankaranarayananK_2015_in_USA"]
+
     def __init__(self):
         print(self.cardi0_sc0res.shape, "\n-->Number of cardio SGBs")
         print(self.diet_sc0res.shape, "\n-->Number of diet SGBs")
@@ -740,9 +783,6 @@ class ZOE_scores_fundamental_analyses(object):
         OUT_dataframe_Cardio = pd.read_csv("results/complete_corre_table_for_OUTCOMES_on-Cardio.tsv", sep="\t", header=0, index_col=None, low_memory=False)
         OUT_dataframe_Diet = pd.read_csv("results/complete_corre_table_for_OUTCOMES_on-Diet.tsv", sep="\t", header=0, index_col=None, low_memory=False)
  
-        ##OUT_dataframe_Cardio_Cru = pd.read_csv("results/complete_corre_table_for_OUTCOMES_Crude_on-Cardio.tsv", sep="\t", header=0, index_col=None, low_memory=False)
-        ##OUT_dataframe_Diet_Cru = pd.read_csv("results/complete_corre_table_for_OUTCOMES_Crude_on-Diet.tsv", sep="\t", header=0, index_col=None, low_memory=False)
-
         #self.perform_meta_analysis_on_outcomes_aggregated(OUT_dataframe_Cardio, "ORDINARY", on_diet=False, counts=True, adj=True)
         #self.perform_meta_analysis_on_outcomes_aggregated(OUT_dataframe_Diet, "ORDINARY", on_diet=True, counts=True, adj=True)
 
