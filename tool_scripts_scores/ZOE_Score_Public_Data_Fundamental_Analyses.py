@@ -8,7 +8,7 @@ import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import fdrcorrection
 from scipy import stats as sts
 import pingouin as pg
-sys.path.append("/shares/CIBIO-Storage/CM/scratch/users/paolo.manghi/metaSinC/metasinc/")
+sys.path.append("../")
 from meta_analyses import generalized_meta_analysis, correlation_meta_analysis
 
 SIGN_TH=0.05
@@ -19,9 +19,6 @@ class Abundance(object):
 
     relab_BMI.loc["study_identifier"] = [((dt + "_in_" + cn) if dt!="KarlssonFH_2013" else dt+"_in_SWE") for dt,cn in zip(\
       relab_BMI.loc["study_name"].tolist(), relab_BMI.loc["country"].tolist())]
-
-    #for x in relab_BMI.loc["study_identifier"].unique(): print(x)
-    #exit(1)
 
     relab_BMI = relab_BMI.rename(index={"gender": "sex"})
 
@@ -40,78 +37,34 @@ class Abundance(object):
     spps_BMI = [i for i in relab_BMI.index if i.startswith("SGB") or i.startswith("EUK")]
     spps_OUT = [i for i in relab_OUT.index if i.startswith("SGB") or i.startswith("EUK")]
 
-    def __init__(self):
+
+    def __init__( self ):
         self.relab_BMI.loc["richness"] = [np.count_nonzero( self.relab_BMI.loc[ self.spps_BMI, s].astype(float)) for s in self.relab_BMI]
         self.relab_OUT.loc["richness"] = [np.count_nonzero( self.relab_OUT.loc[ self.spps_OUT, s].astype(float)) for s in self.relab_OUT]
 
+        self_disease_data = pd.read_csv('../public_data_profiles/all_normalized_scores_ZOE_ranks_disease_dataset.tsv', sep='\t', header=0, index_col=0, low_memory=False)
 
-class Ranks(object):
-    
-    if (not os.path.exists('../cardiometabolic_scores_zoe.tsv')) or (not os.path.exists('../diet_scores_zoe.tsv')):
-        raise FileNotFoundError('the files cardiometabolic_scores_zoe.tsv and diet_scores_zoe.tsv msut be found in the parent directory.')
-        exit(1)
-
-    cardi0_sc0res = pd.read_csv( 'cardiometabolic_scores_zoe.tsv', sep="\t", header=0, index_col=0)["mean_atleast2"].dropna()
-    diet_sc0res = pd.read_csv( 'diet_scores_zoe.tsv', sep="\t", header=0, index_col=0)["mean_atleast2"].dropna()
-
-    cardi0_sc0res = cardi0_sc0res.sort_values()
-    diet_sc0res   = diet_sc0res.sort_values()
-
-    N = 50
+        if (not os.path.exists('../cardiometabolic_scores_zoe.tsv')) or (not os.path.exists('../diet_scores_zoe.tsv')):
+            raise FileNotFoundError('the files cardiometabolic_scores_zoe.tsv and diet_scores_zoe.tsv msut be found in the parent directory.')
+            exit(1)
  
-    #relab = self.relab_OUT.copy(deep=True)
+        cardi0_sc0res = pd.read_csv( '../cardiometabolic_scores_zoe.tsv', sep="\t", header=0, index_col=0)["mean_atleast2"].dropna()
+        diet_sc0res = pd.read_csv( '../diet_scores_zoe.tsv', sep="\t", header=0, index_col=0)["mean_atleast2"].dropna()
 
-    self.relab_OUT = self.relab_OUT.rename(index=dict([(i, i.split("t__")[1]) for i in self.relab_OUT.index if ("t__" in i)]))
+        self.cardi0_sc0res = cardi0_sc0res.sort_values()
+        self.diet_sc0res   = diet_sc0res.sort_values()
 
-    self.relab_OUT.loc["count_of_good_cardio"] = np.count_nonzero( self.relab_OUT.loc[ cardi0_sc0res[ :N ].index ].values.astype(float), axis=0)
-    self.relab_OUT.loc["count_of_bad_cardio"]  = np.count_nonzero( self.relab_OUT.loc[ cardi0_sc0res[ -N: ].index ].values.astype(float), axis=0)
-    self.relab_OUT.loc["count_of_good_diet"]   = np.count_nonzero( self.relab_OUT.loc[ diet_sc0res[ :N ].index ].values.astype(float), axis=0)
-    self.relab_OUT.loc["count_of_bad_diet"]    = np.count_nonzero( self.relab_OUT.loc[ diet_sc0res[ -N: ].index ].values.astype(float), axis=0)
-
-    self.relab_OUT.loc["percentile_count_of_good_cardio"] = [sts.percentileofscore( self.relab_OUT.loc["count_of_good_cardio", self.relab_OUT.loc["study_identifier"]==std].values.astype(float) \
-        , x)/100. for x,std in zip(self.relab_OUT.loc["count_of_good_cardio"].values.astype(float), self.relab_OUT.loc["study_identifier"].tolist())    ]
-    self.relab_OUT.loc["percentile_count_of_bad_cardio"] = [sts.percentileofscore( self.relab_OUT.loc["count_of_bad_cardio", self.relab_OUT.loc["study_identifier"]==std].values.astype(float) \
-        , x)/100. for x,std in zip(self.relab_OUT.loc["count_of_bad_cardio"].values.astype(float), self.relab_OUT.loc["study_identifier"].tolist())    ]
-    self.relab_OUT.loc["percentile_count_of_good_diet"] = [sts.percentileofscore( self.relab_OUT.loc["count_of_good_diet", self.relab_OUT.loc["study_identifier"]==std].values.astype(float) \
-        , x)/100. for x,std in zip(self.relab_OUT.loc["count_of_good_diet"].values.astype(float), self.relab_OUT.loc["study_identifier"].tolist())    ]
-    self.relab_OUT.loc["percentile_count_of_bad_diet"] = [sts.percentileofscore( self.relab_OUT.loc["count_of_bad_diet", self.relab_OUT.loc["study_identifier"]==std].values.astype(float) \
-        , x)/100. for x,std in zip(self.relab_OUT.loc["count_of_bad_diet"].values.astype(float), self.relab_OUT.loc["study_identifier"].tolist())    ]
-
-    self.relab_OUT.loc["cumul_of_good_cardio"] = np.sum( self.relab_OUT.loc[ cardi0_sc0res[ :N ].index ].values.astype(float), axis=0) #/ 100.
-    self.relab_OUT.loc["cumul_of_bad_cardio"]  = np.sum( self.relab_OUT.loc[ cardi0_sc0res[ -N: ].index ].values.astype(float), axis=0) #/ 100.
-    self.relab_OUT.loc["cumul_of_good_diet"]   = np.sum( self.relab_OUT.loc[ diet_sc0res[ :N ].index ].values.astype(float), axis=0) #/ 100.
-    self.relab_OUT.loc["cumul_of_bad_diet"]    = np.sum( self.relab_OUT.loc[ diet_sc0res[ -N: ].index ].values.astype(float), axis=0) #/ 100.
-
-    all_cols = ["count_of_good_cardio", "count_of_bad_cardio", "count_of_good_diet", "count_of_bad_diet", "percentile_count_of_good_cardio", "percentile_count_of_bad_cardio", \
-        "percentile_count_of_good_diet", "percentile_count_of_bad_diet", "cumul_of_good_cardio", "cumul_of_bad_cardio", "cumul_of_good_diet", "cumul_of_bad_diet" ]
- 
-    cardio_zeroone_good = ((cardi0_sc0res.sort_values() - cardi0_sc0res.max()) / (cardi0_sc0res.min() - cardi0_sc0res.max())).to_dict()
-    cardio_zeroone_bad  = ((cardi0_sc0res.sort_values() - cardi0_sc0res.min()) / (cardi0_sc0res.max() - cardi0_sc0res.min())).to_dict()
-    cardio_oneone       = (((1 - (-1)) / (cardi0_sc0res.max() - cardi0_sc0res.min()) * (cardi0_sc0res.sort_values() - cardi0_sc0res.max()) + 1) * -1).to_dict()
-
-    diet_zeroone_good   = ((diet_sc0res.sort_values() - diet_sc0res.max()) / (diet_sc0res.min() - diet_sc0res.max())).to_dict()
-    diet_zeroone_bad    = ((diet_sc0res.sort_values() - diet_sc0res.min()) / (diet_sc0res.max() - diet_sc0res.min())).to_dict()
-    diet_oneone         = (((1 - (-1)) / (diet_sc0res.max() - diet_sc0res.min()) * (diet_sc0res.sort_values() - diet_sc0res.max()) + 1) * -1).to_dict()
-
-    relab = self.relab_OUT.copy(deep=True)
-
-    studies = ["FengQ_2015_in_AUT", "GuptaA_2019_in_IND", "HanniganGD_2017_in_USA", "HanniganGD_2017_in_CAN", "HeQ_2017_in_CHN", "JieZ_2017_in_CHN", "KarlssonFH_2013_in_SWE", \
-        "MetaCardis_2020_a_in_FRA", "MetaCardis_2020_a_in_DEU", "NielsenHB_2014_in_DNK", "NielsenHB_2014_in_ESP", "QinJ_2012_in_CHN", "QinN_2014_in_CHN", "ThomasAM_2018a_in_ITA", \
-        "ThomasAM_2018b_in_ITA", "VogtmannE_2016_in_USA", "WirbelJ_2018_in_DEU", "XuQ_2021_in_CHN", "YachidaS_2019_in_JPN", "YuJ_2015_in_CHN", "ZellerG_2014_in_FRA", \
-        "SankaranarayananK_2015_in_USA"]
-
-    def __init__(self):
         print(self.cardi0_sc0res.shape, "\n-->Number of cardio SGBs")
         print(self.diet_sc0res.shape, "\n-->Number of diet SGBs")
 
 
-class ZOE_scores_fundamental_analyses(object):
+
+class ZOE_scores_on_BMI(object):
     def __init__(self):
-        self.starting_scores = Ranks()
         self.abs = Abundance() ## self.abs.relab_OUT
 
         ## BMI
-        self.all_datasets_BMI = pd.read_csv('../public_data_profiles/Healthy_Subject_Data_Table_Jan21.tsv', sep="\t", header=0, index_col=0, low_memory=False)
+        self.all_datasets_BMI = pd.read_csv("../public_data_profiles/Healthy_Subject_Data_Table_Jan21.tsv", sep="\t", header=0, index_col=0, low_memory=False)
  
         self.sgbs = [i for i in self.all_datasets_BMI.index if ("t__" in i)]
         self.sgbs_codes = [s.split("|")[-1][3:] for s in self.sgbs]
@@ -130,7 +83,7 @@ class ZOE_scores_fundamental_analyses(object):
         self.all_datasets_BMI.loc["sex"] = [(1. if s=="male" else 0.0) for s in self.all_datasets_BMI.loc["sex"].tolist()]
 
         ## OUTCOMES
-        self.all_datasets_OUT = pd.read_csv('../public_data_profiles/CaseControl_Subject_Data_Table_Jan21.tsv', sep="\t", header=0, index_col=0, low_memory=False)
+        self.all_datasets_OUT = pd.read_csv("../public_data_profiles/CaseControl_Subject_Data_Table_Jan21.tsv", sep="\t", header=0, index_col=0, low_memory=False)
  
         self.OUT_sgbs = [i for i in self.all_datasets_OUT.index if ("t__" in i)]
         self.OUT_sgbs_codes = [s.split("|")[-1][3:] for s in self.OUT_sgbs]
@@ -152,8 +105,13 @@ class ZOE_scores_fundamental_analyses(object):
         self.all_datasets_OUT.loc["study_condition"] = [(std if std!="IBD" else disub) for std,disub in zip(\
             self.all_datasets_OUT.loc["study_condition"].tolist(), self.all_datasets_OUT.loc["disease_subtype"].tolist())]
 
-        self.Cardio_SGBs = self.starting_scores.cardi0_sc0res.index.tolist()
-        self.Diet_SGBs   = self.starting_scores.diet_sc0res.index.tolist()
+        self.Cardio_SGBs = self.abs.cardi0_sc0res.index.tolist()
+        self.Diet_SGBs   = self.abs.diet_sc0res.index.tolist()
+
+        self.data = pd.read_csv('../public_data_profiles/all_normalized_scores_ZOE_ranks_disease_dataset.tsv', sep="\t", header=0, index_col=0, low_memory=False)
+        self.data_pairs = pd.read_csv('../disease_dataset_pairs.txt', sep="\t", header=0, index_col=0)
+
+
 
     def get_a_smd(self, dataset_id, condition, SGB):
         datas = self.all_datasets_OUT.loc[ self.metadata_OUT + [SGB], \
@@ -185,100 +143,7 @@ class ZOE_scores_fundamental_analyses(object):
                 return rs
         return "ABSENT"
 
-    def get_a_smd_no_BMI_correction(self, dataset_id, condition, SGB):
-        datas = self.all_datasets_OUT.loc[ self.metadata_OUT + [SGB], \
-            (self.all_datasets_OUT.loc["study_identifier"]==dataset_id) & \
-            (self.all_datasets_OUT.loc["study_condition"].isin([condition, "control"])) ]
-        datas.loc[SGB] = np.arcsin(np.sqrt(datas.loc[SGB].values.astype(float)/100.))
-        covars = ["sex", "age"]
 
-        if datas.loc[SGB].astype(bool).astype(int).sum() >= 15:
-            datast = datas.loc[self.metadata_OUT + [SGB]].T
-            datast = datast.astype({"BMI": float, SGB: float, "target_condition": str, "study_condition": str, "sex": str, "age": float})
-
-            covars = [c for c in covars if (len(datast[c].unique())>1)]
-            md = smf.ols('Q("%s") ~ C(target_condition, Treatment("control")) + C(sex) + age' %(SGB), data=datast)
-            model_fit = md.fit()
-            disease = condition ##"|".join(sorted([c for c in datast["study_condition"].unique().tolist() if c!="control"]))
-            if 'C(target_condition, Treatment("control"))[T.case]' in model_fit.params.index.tolist():
-                #print(model_fit.summary())
-                t = model_fit.tvalues.loc[ 'C(target_condition, Treatment("control"))[T.case]' ]
-                n1 = float(len(datast.loc[ (datast["target_condition"]=="control") ]))
-                n2 = float(len(datast.loc[ (datast["target_condition"]=="case") ]))
-                d = (t*(n1+n2))/float(np.sqrt(n1*n2)*np.sqrt(n1+n2-2))
-                SEd = np.sqrt(((n1+n2-1)/float(n1+n2-3)) * ((4./float(n1+n2))*(1+((d**2.)/8.))))
-                pval = model_fit.pvalues.loc['C(target_condition, Treatment("control"))[T.case]']
-                rs = pd.DataFrame({\
-                    "d": d, "se": SEd, "p-val": pval, "n_cases": n2, "n_ctrs": n1, "SGB": SGB, "study": dataset_id, "disease": disease}, index=["effect_size"])
-                return rs
-        return "ABSENT"
-
-    def get_a_smd_Crude(self, dataset_id, condition, SGB):
-        datas = self.all_datasets_OUT.loc[ self.metadata_OUT + [SGB], \
-            (self.all_datasets_OUT.loc["study_identifier"]==dataset_id) & \
-            (self.all_datasets_OUT.loc["study_condition"].isin([condition, "control"])) ]
-        datas.loc[SGB] = np.arcsin(np.sqrt(datas.loc[SGB].values.astype(float)/100.))
-        covars = [] #"sex", "age"]
-
-        if datas.loc[SGB].astype(bool).astype(int).sum() >= 15:
-            datast = datas.loc[self.metadata_OUT + [SGB]].T
-            datast = datast.astype({"BMI": float, SGB: float, "target_condition": str, "study_condition": str, "sex": str, "age": float})
-            #covars = [c for c in covars if (len(datast[c].unique())>1)]
-            md = smf.ols('Q("%s") ~ C(target_condition, Treatment("control"))' %(SGB), data=datast)
-            model_fit = md.fit()
-            disease = condition ##"|".join(sorted([c for c in datast["study_condition"].unique().tolist() if c!="control"]))
-            if 'C(target_condition, Treatment("control"))[T.case]' in model_fit.params.index.tolist():
-                #print(model_fit.summary())
-                t = model_fit.tvalues.loc[ 'C(target_condition, Treatment("control"))[T.case]' ]
-                n1 = float(len(datast.loc[ (datast["target_condition"]=="control") ]))
-                n2 = float(len(datast.loc[ (datast["target_condition"]=="case") ]))
-                d = (t*(n1+n2))/float(np.sqrt(n1*n2)*np.sqrt(n1+n2-2))
-                SEd = np.sqrt(((n1+n2-1)/float(n1+n2-3)) * ((4./float(n1+n2))*(1+((d**2.)/8.))))
-                pval = model_fit.pvalues.loc['C(target_condition, Treatment("control"))[T.case]']
-                rs = pd.DataFrame({\
-                    "d": d, "se": SEd, "p-val": pval, "n_cases": n2, "n_ctrs": n1, "SGB": SGB, "study": dataset_id, "disease": disease}, index=["effect_size"])
-                return rs
-        return "ABSENT"
-
-    def get_diff_rec_Crude(self, on_diet=False):
-        OUTFILE = "complete_corre_table_for_OUTCOMES_Crude_on-Cardio.tsv" if not on_diet else "complete_corre_table_for_OUTCOMES_Crude_on-Diet.tsv"
-        res_on_OUT = []
-        scored_sgbs = self.Cardio_SGBs if not on_diet else self.Diet_SGBs
-        for SGB in scored_sgbs:
-            for dataset in self.all_datasets_OUT.loc["study_identifier"].unique():
-                diseases = [c for c in self.all_datasets_OUT.loc[ "study_condition", \
-                    (self.all_datasets_OUT.loc["study_identifier"]==dataset) ].unique().tolist() if c!="control" ]
-                for disease in diseases:
-                    cor_frame = self.get_a_smd_Crude( dataset, disease, SGB )
-                    if not isinstance(cor_frame, str):
-                        print(cor_frame)
-                        if not len(res_on_OUT):
-                            res_on_OUT = cor_frame
-                        else:
-                            res_on_OUT = pd.concat([res_on_OUT, cor_frame])
-        _,fdr = fdrcorrection(res_on_OUT["p-val"].values.astype(float), alpha=0.05)
-        res_on_OUT.insert(4, "FDR-q-val", fdr)
-        res_on_OUT.to_csv(os.path.join("results/", OUTFILE), sep="\t", header=True, index=True)
- 
-    def get_diff_rec_NoBMI(self, on_diet=False):
-        OUTFILE = "complete_corre_table_for_OUTCOMES_NoBMI_Corr_on-Cardio.tsv" if not on_diet else "complete_corre_table_for_OUTCOMES_NoBMI_Corr_on-Diet.tsv"
-        res_on_OUT = []
-        scored_sgbs = self.Cardio_SGBs if not on_diet else self.Diet_SGBs
-        for SGB in scored_sgbs:
-            for dataset in self.all_datasets_OUT.loc["study_identifier"].unique():
-                diseases = [c for c in self.all_datasets_OUT.loc[ "study_condition", \
-                    (self.all_datasets_OUT.loc["study_identifier"]==dataset) ].unique().tolist() if c!="control" ]
-                for disease in diseases:
-                    cor_frame = self.get_a_smd_no_BMI_correction( dataset, disease, SGB )
-                    if not isinstance(cor_frame, str):
-                        print(cor_frame)
-                        if not len(res_on_OUT):
-                            res_on_OUT = cor_frame
-                        else:
-                            res_on_OUT = pd.concat([res_on_OUT, cor_frame])
-        _,fdr = fdrcorrection(res_on_OUT["p-val"].values.astype(float), alpha=0.05)
-        res_on_OUT.insert(4, "FDR-q-val", fdr)
-        res_on_OUT.to_csv(os.path.join("results/", OUTFILE), sep="\t", header=True, index=True)
 
     def get_diff_rec(self, on_diet=False):
         OUTFILE = "complete_corre_table_for_OUTCOMES_on-Cardio.tsv" if not on_diet else "complete_corre_table_for_OUTCOMES_on-Diet.tsv"
@@ -298,25 +163,7 @@ class ZOE_scores_fundamental_analyses(object):
                             res_on_OUT = pd.concat([res_on_OUT, cor_frame])
         _,fdr = fdrcorrection(res_on_OUT["p-val"].values.astype(float), alpha=0.05)
         res_on_OUT.insert(4, "FDR-q-val", fdr)
-        res_on_OUT.to_csv(os.path.join("results/", OUTFILE), sep="\t", header=True, index=True)
-
-    def get_a_pcorr(self, dataset_id, SGB):
-        datas = self.all_datasets_BMI.loc[ self.metadata + [SGB], self.all_datasets_BMI.loc["study_identifier"]==dataset_id ]
-        datas.loc[SGB] = np.arcsin(np.sqrt(datas.loc[SGB].values.astype(float)/100.))
-        covars = ["sex", "age"]
-
-        if datas.loc[SGB].astype(bool).astype(int).sum() >= 20:
-            datast = datas.loc[self.metadata + [SGB]].T
-            datast = datast.astype(float)
-            covars = [c for c in covars if (len(datast[c].unique())>1)]
-
-            pcrr = pg.partial_corr(data=datast, x="BMI", y=SGB, covar=covars, method="spearman")
-            pcrr["SGB"] = SGB
-            pcrr["study"] = dataset_id
-            pcrr["CI95%"] = "-".join(list(map(str, pcrr["CI95%"])))
-
-            return pcrr
-        return "ABSENT"
+        res_on_OUT.to_csv(os.path.join("../temporary/", OUTFILE), sep="\t", header=True, index=True)
 
 
 
@@ -390,9 +237,9 @@ class ZOE_scores_fundamental_analyses(object):
 
         for class_a,class_b in analyses:
  
-            OUTFILE_tt = "bmi_pooled_analyses/aggregated_FIRST_table_of_meta_analysis_on_BMI_%s_%s_%s_%svs%s.tsv" \
+            OUTFILE_tt = "../bmi_pooled_analyses/aggregated_FIRST_table_of_meta_analysis_on_BMI_%s_%s_%s_%svs%s.tsv" \
                 %(title, "on-Cardio" if not on_diet else "on-Diet", "counts" if counts else "cumul", class_a, class_b)
-            OUTFILE_bb = "bmi_pooled_analyses/aggregated_LAST_table_of_meta_analysis_on_BMI_%s_%s_%s_%svs%s.tsv" \
+            OUTFILE_bb = "../bmi_pooled_analyses/aggregated_LAST_table_of_meta_analysis_on_BMI_%s_%s_%s_%svs%s.tsv" \
                 %(title, "on-Cardio" if not on_diet else "on-Diet", "counts" if counts else "cumul", class_a, class_b)
  
             res_top, res_bot = [ ], [ ]
@@ -478,8 +325,7 @@ class ZOE_scores_fundamental_analyses(object):
                         res_on_BMI = pd.concat([res_on_BMI, cor_frame])
         _,fdr = fdrcorrection(res_on_BMI["p-val"].values.astype(float), alpha=0.05)
         res_on_BMI.insert(3, "FDR-q-val", fdr)
-        res_on_BMI.to_csv(os.path.join("results/", OUTFILE), sep="\t", header=True, index=True)
-
+        res_on_BMI.to_csv(os.path.join("../temporary/", OUTFILE), sep="\t", header=True, index=True)
 
     def perform_meta_analysis_on_one_SGB(self, SGB, dataframe):
         sgb_frame = dataframe.loc[dataframe["SGB"] == SGB]
@@ -494,128 +340,49 @@ class ZOE_scores_fundamental_analyses(object):
         return "TO_FEW"
 
 
-    def perform_meta_analysis_on_one_dataset_and_one_disease_alternative_way(self, study, disease, dataframe, the_sgbs):
-        dataset_frame = dataframe.loc[ (dataframe["disease"]==disease) & (dataframe["study"]==study) & (dataframe["SGB"].isin(the_sgbs)) ]
-        if len(dataset_frame) >= 3:
-            lenght = len(dataset_frame)
 
-            ma = meta_analysis( \
-                dataset_frame["d"].values.astype(float), \
-                dataset_frame["FDR-q-val"].values.astype(float), dataset_frame["SGB"].tolist(), \
-                dataset_frame["n_cases"].values.astype(float), \
-                dataset_frame["n_ctrs"].values.astype(float), \
-                disease, EFF="precomputed", \
-                variances_from_outside=dataset_frame["se"].values.astype(float)**2., \
-                CI=False, HET="FIX")
-
-            meta_an = {"effect": ma.RE, "std_err": ma.stdErr, "p-val": ma.Pval, \
-                "lenght": lenght, "95% CI": "|".join(list(map(str, ma.conf_int))) \
-                }
-
-            return pd.DataFrame(meta_an, index=[study + "-" + disease])
-        return "TO_FEW"
-
-
-    ##  perform_meta_analysis_on_one_dataset_and_one_disease(self, study, disease, dataset_frame, all_sgbs, counts, adj)
-    def perform_meta_analysis_on_one_dataset_and_one_disease(self, study, disease, dataset_frame, all_sgbs, counts, adj):
-        if counts: 
-            ctrs = np.count_nonzero(self.abs.relab_OUT.loc[ all_sgbs, (self.abs.relab_OUT.loc["study_condition"]=="control") & \
-                (self.abs.relab_OUT.loc["study_identifier"]==study) ].values.astype(float), axis=0)
-            cases = np.count_nonzero(self.abs.relab_OUT.loc[ all_sgbs, (self.abs.relab_OUT.loc["study_condition"]==disease) & \
-                (self.abs.relab_OUT.loc["study_identifier"]==study) ].values.astype(float), axis=0)
+    def perform_meta_analysis_on_one_dataset_and_one_disease(self, score, study, disease, dataset_frame, counts, adj):
+        ctrs = self.data.loc[ score, (self.data.loc["study_condition"]=="control") & (self.data.loc["study_identifier"]==study) ].values.astype(float)
+        cases = self.data.loc[ score, (self.data.loc["study_condition"]==disease) & (self.data.loc["study_identifier"]==study) ].values.astype(float)
  
-            sam_ctrs = self.abs.relab_OUT.loc[ all_sgbs, (self.abs.relab_OUT.loc["study_condition"]=="control") & (self.abs.relab_OUT.loc["study_identifier"]==study) ].columns.tolist()
-            sam_cases= self.abs.relab_OUT.loc[ all_sgbs, (self.abs.relab_OUT.loc["study_condition"]==disease) & (self.abs.relab_OUT.loc["study_identifier"]==study) ].columns.tolist()
+        sam_ctrs = self.data.loc[ score, (self.data.loc["study_condition"]=="control") & (self.data.loc["study_identifier"]==study) ].index.tolist()
+        sam_cases= self.data.loc[ score, (self.data.loc["study_condition"]==disease) & (self.data.loc["study_identifier"]==study) ].index.tolist()
  
-            #ctrs = [ (c if c>0. else 1 ) for c in ctrs ]
-            #cases = [ (c if c>0. else 1 ) for c in cases ]
-
-            #ctrs = np.log(ctrs)
-            #cases = np.log(cases)
-
-        else:
-            ctrs = np.sum(self.abs.relab_OUT.loc[ all_sgbs, (self.abs.relab_OUT.loc["study_condition"]=="control") & \
-                (self.abs.relab_OUT.loc["study_identifier"]==study) ].values.astype(float), axis=0)
-            cases = np.sum(self.abs.relab_OUT.loc[ all_sgbs, (self.abs.relab_OUT.loc["study_condition"]==disease) & \
-                (self.abs.relab_OUT.loc["study_identifier"]==study) ].values.astype(float), axis=0)
-
-            sam_ctrs = self.abs.relab_OUT.loc[ all_sgbs, (self.abs.relab_OUT.loc["study_condition"]=="control") & (self.abs.relab_OUT.loc["study_identifier"]==study) ].columns.tolist()
-            sam_cases= self.abs.relab_OUT.loc[ all_sgbs, (self.abs.relab_OUT.loc["study_condition"]==disease) & (self.abs.relab_OUT.loc["study_identifier"]==study) ].columns.tolist()
-
-            #ctrs = [ (c if c>0. else 0.000005 ) for c in ctrs ]
-            #cases = [ (c if c>0. else 0.000005 ) for c in cases ]
-
-            #ctrs = np.log(ctrs)
-            #cases = np.log(cases)
-
-            ctrs = np.arcsin(np.sqrt(ctrs/100.))
-            cases = np.arcsin(np.sqrt(cases/100.))
-
         if len(dataset_frame) >= 3:
-            lenght = len(dataset_frame)
+            nctrs, ncases = len(ctrs), len(cases)
+            datast = pd.DataFrame({ \
+                score: list(ctrs) + list(cases), "condition": ["no" for i in range(len(sam_ctrs))] + ["yes" for i in range(len(sam_cases))], \
+                "sex": self.abs.relab_OUT.loc["sex", sam_ctrs + sam_cases].tolist(), "age": self.abs.relab_OUT.loc["age", sam_ctrs + sam_cases].values.astype(float), \
+                "BMI": self.abs.relab_OUT.loc["BMI", sam_ctrs + sam_cases].values.astype(float), }, index=sam_ctrs + sam_cases)
 
-            if not adj:
+            datast = datast.astype({score: float, "condition": str, "sex": str, "age": float, "BMI": float})
+ 
+            if len(datast["sex"].unique()) == 1:
+                md = smf.ols('%s ~ C(condition, Treatment("no")) + BMI + age' %score, data=datast)
+            else:
+                md = smf.ols('%s ~ C(condition, Treatment("no")) + BMI + age + C(sex, Treatment("female"))' %score, data=datast)
+
+            model_fit = md.fit()
+
+            if 'C(condition, Treatment("no"))[T.yes]' in model_fit.params.index:
+                model_fit = md.fit()
+                print(model_fit.summary())
+
                 if not counts:
-                    nctrs, ncases = len(ctrs), len(cases)
-                    eff = pg.compute_effsize(cases, ctrs)
-                    std = np.sqrt((nctrs+ncases)/(nctrs*ncases) + (eff**2.)/(2*(nctrs+ncases-2)))
-                    _,pval = sts.ranksums(ctrs, cases)
+                    t = model_fit.tvalues.loc[ 'C(condition, Treatment("no"))[T.yes]' ]
+                    eff = (t*(nctrs+ncases))/float(np.sqrt(nctrs*ncases)*np.sqrt(nctrs+ncases-2))
+                    std = np.sqrt(((nctrs+ncases-1)/float(nctrs+ncases-3)) * ((4./float(nctrs+ncases))*(1+((eff**2.)/8.))))
 
                 else:
-                    nctrs, ncases = len(ctrs), len(cases)
-                    datast = pd.DataFrame({\
-                        "response": list(ctrs) + list(cases), "condition": ["no" for i in range(len(sam_ctrs))] + ["yes" for i in range(len(sam_cases))]}, \
-                        index=sam_ctrs + sam_cases)
-                    datast = datast.astype({"response": float, "condition": str})
+                    eff = model_fit.params.loc[ 'C(condition, Treatment("no"))[T.yes]' ] 
+                    std = model_fit.bse.loc[ 'C(condition, Treatment("no"))[T.yes]' ]
 
-                    md = smf.ols('response ~ C(condition, Treatment("no"))', data=datast)
-                    model_fit = md.fit()
+                pval = model_fit.pvalues.loc['C(condition, Treatment("no"))[T.yes]']
 
-                    if 'C(condition, Treatment("no"))[T.yes]' in model_fit.params.index:
-                        print(model_fit.summary())
+            else: 
+                return "TO_FEW"
 
-                        eff = model_fit.params.loc[ 'C(condition, Treatment("no"))[T.yes]' ]
-                        std = model_fit.bse.loc[ 'C(condition, Treatment("no"))[T.yes]' ]
-
-                        pval = model_fit.pvalues.loc['C(condition, Treatment("no"))[T.yes]']
-
-                    else: 
-                        return "TO_FEW"
-
-            else:
-                nctrs, ncases = len(ctrs), len(cases)
-                datast = pd.DataFrame({\
-                    "response": list(ctrs) + list(cases), "condition": ["no" for i in range(len(sam_ctrs))] + ["yes" for i in range(len(sam_cases))], \
-                    "sex": self.abs.relab_OUT.loc["sex", sam_ctrs + sam_cases].tolist(), "age": self.abs.relab_OUT.loc["age", sam_ctrs + sam_cases].values.astype(float), \
-                    "BMI": self.abs.relab_OUT.loc["BMI", sam_ctrs + sam_cases].values.astype(float), \
-                    "richness": self.abs.relab_OUT.loc["richness", sam_ctrs + sam_cases].values.astype(float)}, index=sam_ctrs + sam_cases)
-
-                datast = datast.astype({"response": float, "condition": str, "sex": str, "age": float, "BMI": float, "richness": float})
-
-                md = smf.ols('response ~ C(condition, Treatment("no")) + C(sex, Treatment(\"male\")) + BMI + age', data=datast)
-                model_fit = md.fit()
-
-                ## C(sex)
-
-                if 'C(condition, Treatment("no"))[T.yes]' in model_fit.params.index:
-                    model_fit = md.fit()
-                    print(model_fit.summary())
-
-                    if counts:
-                        eff = model_fit.params.loc[ 'C(condition, Treatment("no"))[T.yes]' ]
-                        std = model_fit.bse.loc[ 'C(condition, Treatment("no"))[T.yes]' ]
-
-                    else: 
-                        t = model_fit.tvalues.loc[ 'C(condition, Treatment("no"))[T.yes]' ]
-                        eff = (t*(nctrs+ncases))/float(np.sqrt(nctrs*ncases)*np.sqrt(nctrs+ncases-2))
-                        std = np.sqrt(((nctrs+ncases-1)/float(nctrs+ncases-3)) * ((4./float(nctrs+ncases))*(1+((eff**2.)/8.))))
-
-                    pval = model_fit.pvalues.loc['C(condition, Treatment("no"))[T.yes]']
-
-                else: 
-                    return "TO_FEW"
-
-            meta_an = {"effect": eff, "std_err": std, "p-val": pval, "# SGB. used": lenght, \
+            meta_an = {"effect": eff, "std_err": std, "p-val": pval, \
                 "95% CI": "|".join(list(map(str, [eff-std*1.96, eff+std*1.96]))), \
                 "nctrs": nctrs, "ncases": ncases, "mean_ctr": np.mean(ctrs), "mean_css": np.mean(cases), \
                 "std_ctr": np.std(ctrs), "std_css": np.std(cases)}
@@ -625,7 +392,7 @@ class ZOE_scores_fundamental_analyses(object):
 
 
     def perform_plain_meta_analysis_on_BMI(self, BMI_dataframe, on_diet=False):
-        outfile = "results/synthetic_table_of_meta_analysis_on_BMI_plain_%s.tsv" %("on-Cardio" if not on_diet else "on-Diet")
+        outfile = "BMI_analysis/synthetic_table_of_meta_analysis_on_BMI_plain_%s.tsv" %("on-Cardio" if not on_diet else "on-Diet")
         res = []
         for sgb in BMI_dataframe["SGB"].unique().tolist():
             mm = self.perform_meta_analysis_on_one_SGB(sgb, BMI_dataframe)
@@ -642,42 +409,34 @@ class ZOE_scores_fundamental_analyses(object):
         res.to_csv(outfile, sep="\t", header=True, index=True)
 
 
-    def perform_meta_analysis_on_outcomes_aggregated(self, OUT_dataframe, title, on_diet, counts, adj):
-        if not on_diet:
-            top50, bot50 = self.Cardio_SGBs[ :50 ], self.Cardio_SGBs[ -50: ]
-        else:
-            top50, bot50 = self.Diet_SGBs[ :50 ], self.Diet_SGBs[ -50: ]
-            
-        OUTFILE_tt = "results/aggregated_TOP_table_of_meta_analysis_on_OUT_hier_%s_%s_%s.tsv" %(title, "on-Cardio" if not on_diet else "on-Diet", "counts" if counts else "cumul")
-        OUTFILE_bb = "results/aggregated_BOT_table_of_meta_analysis_on_OUT_hier_%s_%s_%s.tsv" %(title, "on-Cardio" if not on_diet else "on-Diet", "counts" if counts else "cumul")
+
+    def perform_meta_analysis_on_outcomes_aggregated(self, OUT_dataframe, score, title, counts, adj):
+        OUTFILE_tt = "../temporary/%s_%s_cardiometabolic_and_gut_related.tsv" %(score, "SMD" if not counts else "MND")
 
         combos = set()
         res_top, res_bot = [ ], [ ]
 
         for study,disease in zip(OUT_dataframe["study"].tolist(), OUT_dataframe["disease"].tolist()):
-            if not (study,disease) in combos:
-                combos.add((study,disease))
-                frame = OUT_dataframe.loc[ (OUT_dataframe["study"] == study) & (OUT_dataframe["disease"] == disease) & (OUT_dataframe["SGB"].isin(top50)) ]
-                ma = self.perform_meta_analysis_on_one_dataset_and_one_disease(study, disease, frame, top50, counts, adj)
-                if not isinstance(ma, str):
-                    if not len(res_top):
-                        res_top = ma
-                    else:
-                        res_top = pd.concat([res_top, ma])
+
+            if study in ["FengQ_2015_in_AUT", "GuptaA_2019_in_IND", "HanniganGD_2017_in_USA", "HanniganGD_2017_in_CAN", "HeQ_2017_in_CHN", "JieZ_2017_in_CHN", "KarlssonFH_2013_in_SWE", \
+                "MetaCardis_2020_a_in_FRA", "MetaCardis_2020_a_in_DEU", "NielsenHB_2014_in_DNK", "NielsenHB_2014_in_ESP", "QinJ_2012_in_CHN", "QinN_2014_in_CHN", "ThomasAM_2018a_in_ITA", \
+                "ThomasAM_2018b_in_ITA", "VogtmannE_2016_in_USA", "WirbelJ_2018_in_DEU", "XuQ_2021_in_CHN", "YachidaS_2019_in_JPN", "YuJ_2015_in_CHN", "ZellerG_2014_in_FRA", \
+                "SankaranarayananK_2015_in_USA"]:
+
+                if not (study,disease) in combos:
+                    combos.add((study,disease))
+
+                    frame = OUT_dataframe.loc[ (OUT_dataframe["study"] == study) & (OUT_dataframe["disease"] == disease) ]
+                    ma = self.perform_meta_analysis_on_one_dataset_and_one_disease(score, study, disease, frame, counts, adj)
+
+                    if not isinstance(ma, str):
+                        if not len(res_top):
+                            res_top = ma
+                        else:
+                            res_top = pd.concat([res_top, ma])
+
         res_top.to_csv(OUTFILE_tt, sep="\t", header=True, index=True)
 
-        combos = set()
-        for study,disease in zip(OUT_dataframe["study"].tolist(), OUT_dataframe["disease"].tolist()):
-            if not (study,disease) in combos:
-                combos.add((study,disease))
-                frame = OUT_dataframe.loc[ (OUT_dataframe["study"] == study) & (OUT_dataframe["disease"] == disease) & (OUT_dataframe["SGB"].isin(bot50)) ]
-                ma = self.perform_meta_analysis_on_one_dataset_and_one_disease(study, disease, frame, bot50, counts, adj)
-                if not isinstance(ma, str):
-                    if not len(res_bot):
-                        res_bot = ma
-                    else:
-                        res_bot = pd.concat([res_bot, ma])
-        res_bot.to_csv(OUTFILE_bb, sep="\t", header=True, index=True)
 
 
     def perform_meta_analysis_on_one_SGB_in_outcomes(self, sgb, OUT_dataframe):
@@ -735,7 +494,7 @@ class ZOE_scores_fundamental_analyses(object):
         return "TO_FEW"
 
     def perform_meta_analysis_on_a_disease(self, OUT_dataframe, title, on_diet=False):
-        outfile = "results/synthetic_table_of_meta_analysis_on_OUT_hier_%s_%s.tsv" %(title, "on-Cardio" if not on_diet else "on-Diet")
+        outfile = "../temporary/synthetic_table_of_meta_analysis_on_OUT_hier_%s_%s.tsv" %(title, "on-Cardio" if not on_diet else "on-Diet")
         res = []
         for sgb in OUT_dataframe["SGB"].unique().tolist():
             mm = self.perform_meta_analysis_on_one_SGB_in_outcomes(sgb, OUT_dataframe)
@@ -751,52 +510,26 @@ class ZOE_scores_fundamental_analyses(object):
         del res["a"]; del res["b"]
         res.to_csv(outfile, sep="\t", header=True, index=True)
 
-    def summarize_into_meta_analyses(self, \
-        BMI_dataframe_Cardio, BMI_dataframe_Diet, \
-        \
-        OUT_dataframe_Cardio, OUT_dataframe_Diet, \
-        OUT_dataframe_Cardio_NoBMI, OUT_dataframe_Diet_NoBMI, \
-        OUT_dataframe_Cardio_Crude, OUT_dataframe_Diet_Crude):
-
-        #self.perform_plain_meta_analysis_on_BMI(BMI_dataframe_Cardio, on_diet=False)
-        #self.perform_plain_meta_analysis_on_BMI(BMI_dataframe_Diet, on_diet=True)
-
-        self.perform_meta_analysis_on_a_disease(OUT_dataframe_Cardio, "Adj", on_diet=False)
-        self.perform_meta_analysis_on_a_disease(OUT_dataframe_Diet, "Adj", on_diet=True)
-
-        self.perform_meta_analysis_on_a_disease(OUT_dataframe_Cardio_NoBMI, "NoBMI", on_diet=False)
-        self.perform_meta_analysis_on_a_disease(OUT_dataframe_Diet_NoBMI, "NoBMI", on_diet=True)
-
-        self.perform_meta_analysis_on_a_disease(OUT_dataframe_Cardio_Crude, "Cru", on_diet=False)
-        self.perform_meta_analysis_on_a_disease(OUT_dataframe_Diet_Crude, "Cru", on_diet=True)
 
 
-
-
-
-    def main(self):
-
-        ## BLOCK FOR OUTCOMES
-        self.get_diff_rec(on_diet=False)
-        self.get_diff_rec(on_diet=True)
+    def main(self): 
  
-        OUT_dataframe_Cardio = pd.read_csv("results/complete_corre_table_for_OUTCOMES_on-Cardio.tsv", sep="\t", header=0, index_col=None, low_memory=False)
-        OUT_dataframe_Diet = pd.read_csv("results/complete_corre_table_for_OUTCOMES_on-Diet.tsv", sep="\t", header=0, index_col=None, low_memory=False)
+        ## self.get_diff_rec(on_diet=False)
+        ## self.get_diff_rec(on_diet=True)
  
-        #self.perform_meta_analysis_on_outcomes_aggregated(OUT_dataframe_Cardio, "ORDINARY", on_diet=False, counts=True, adj=True)
-        #self.perform_meta_analysis_on_outcomes_aggregated(OUT_dataframe_Diet, "ORDINARY", on_diet=True, counts=True, adj=True)
+        ## OUT_dataframe_Cardio = pd.read_csv("../temporary/complete_corre_table_for_OUTCOMES_on-Cardio.tsv", sep="\t", header=0, index_col=None, low_memory=False)
+        ## OUT_dataframe_Diet = pd.read_csv("../temporary/complete_corre_table_for_OUTCOMES_on-Diet.tsv", sep="\t", header=0, index_col=None, low_memory=False)
+ 
+        ##for score in [ 'count_of_good_cardio', 'count_of_bad_cardio', 'cumul_of_good_cardio', 'cumul_of_bad_cardio', \
+        ##    'count_of_good_diet', 'count_of_bad_diet', 'cumul_of_good_diet', 'cumul_of_bad_diet', \
+        ##    "cardio_minusone_to_one_arcsin", "diet_minusone_to_one_arcsin", "cardio_minusone_to_one_weig", "diet_minusone_to_one_weig" ]:
 
-        #self.perform_meta_analysis_on_outcomes_aggregated(OUT_dataframe_Cardio, "ORDINARY", on_diet=False, counts=False, adj=True)
-        #self.perform_meta_analysis_on_outcomes_aggregated(OUT_dataframe_Diet, "ORDINARY", on_diet=True, counts=False, adj=True)
- 
-        ## BLOCK FOR BMI
+        ##    for frame in [OUT_dataframe_Cardio, OUT_dataframe_Diet]:
+        ##        self.perform_meta_analysis_on_outcomes_aggregated(OUT_dataframe_Cardio, score, "ORDINARY", counts=False, adj=True)
+  
         self.perform_meta_analysis_on_BMI_aggregated("ORDINARY", on_diet=False, counts=True, adj=True)
         self.perform_meta_analysis_on_BMI_aggregated("ORDINARY", on_diet=True, counts=True, adj=True)
 
-        self.perform_meta_analysis_on_BMI_aggregated("ORDINARY", on_diet=False, counts=False, adj=True)
-        self.perform_meta_analysis_on_BMI_aggregated("ORDINARY", on_diet=True, counts=False, adj=True)
-
-
 if __name__ == "__main__":
-    ZsoB = ZOE_scores_fundamental_analyses()
+    ZsoB = ZOE_scores_on_BMI()
     ZsoB.main()
