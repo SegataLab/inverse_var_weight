@@ -2,9 +2,7 @@
  
 ## Description ##
  
-* Provides two classes for inverse-variance weighting
-* (binary outcome & correlation-based) including two
-* estimators for covariance among correlated effect sizes
+* Provides two classes for inverse-variance weighting (binary outcome & correlation-based) including two estimators for covariance among correlated effect sizes
 
 **Requires the following python libraries:**
 
