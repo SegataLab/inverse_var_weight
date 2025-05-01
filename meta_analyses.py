@@ -42,7 +42,7 @@ class generalized_meta_analysis(object):
         self.n = len(self.study_names)
         self.n_studies = self.n
         self.variances = np.array(variances, dtype=np.float64)
-        print("Variances: is the sum zero? -> ", self.variances)
+        ## print("Variances: is the sum zero? -> ", self.variances)
         self.HET = HET
         self.response_var = response_var
         self.devs = np.sqrt(self.variances)
