@@ -7,15 +7,15 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import fdrcorrection
 from scipy import stats as sts
-import pingouin as pg
 sys.path.append("../")
 from meta_analyses import generalized_meta_analysis, correlation_meta_analysis
 
 SIGN_TH=0.05
 
+
 class Abundance(object):
-    relab_BMI = pd.read_csv("../public_data_profiles/Healthy_Subject_Data_Table_Jan21.tsv", sep="\t", header=0, index_col=0, low_memory=False)
-    relab_OUT = pd.read_csv("../public_data_profiles/CaseControl_Subject_Data_Table_Jan21.tsv", sep="\t", header=0, index_col=0, low_memory=False)
+    relab_BMI = pd.read_csv("../public_data_profiles/Healthy_Subject_Data_Table_Jan21.tsv.bz2", sep="\t", header=0, index_col=0, low_memory=False, compression='bz2')
+    relab_OUT = pd.read_csv("../public_data_profiles/CaseControl_Subject_Data_Table_Jan21.tsv.bz2", sep="\t", header=0, index_col=0, low_memory=False, compression='bz2')
 
     relab_BMI.loc["study_identifier"] = [((dt + "_in_" + cn) if dt!="KarlssonFH_2013" else dt+"_in_SWE") for dt,cn in zip(\
       relab_BMI.loc["study_name"].tolist(), relab_BMI.loc["country"].tolist())]
@@ -30,32 +30,41 @@ class Abundance(object):
       relab_OUT.loc["study_condition"].tolist(), relab_OUT.loc["disease_subtype"].tolist())]
 
     relab_OUT = relab_OUT.rename(index=dict([(i, i.split("|")[-1][3:]) for i in relab_OUT.index if ("t__" in i)]))
-    relab_BMI = relab_BMI.rename(index=dict([(i, i.split("|")[-1][3:]) for i in relab_BMI.index if ("t__" in i)]))
- 
-    relab_BMI.loc["BMI_class"] = [("normal" if (b<25) else ("overweight" if (b>=25 and b<30) else "obese")) for b in relab_BMI.loc["BMI"].values.astype(float)]
+
+    relab_BMI = relab_BMI.rename(index=dict([(i, i.split("|")[-1][3:]) for i in relab_BMI.index if ("t__" in i)])) 
+    relab_BMI.loc["BMI_class"] = [("healthy-weight" if (b<25) else ("overweight" if (b>=25 and b<30) else "obese")) for b in relab_BMI.loc["BMI"].values.astype(float)]
 
     spps_BMI = [i for i in relab_BMI.index if i.startswith("SGB") or i.startswith("EUK")]
     spps_OUT = [i for i in relab_OUT.index if i.startswith("SGB") or i.startswith("EUK")]
 
 
+
+
+
     def __init__( self ):
         self.relab_BMI.loc["richness"] = [np.count_nonzero( self.relab_BMI.loc[ self.spps_BMI, s].astype(float)) for s in self.relab_BMI]
-        self.relab_OUT.loc["richness"] = [np.count_nonzero( self.relab_OUT.loc[ self.spps_OUT, s].astype(float)) for s in self.relab_OUT]
 
-        self_disease_data = pd.read_csv('../public_data_profiles/all_normalized_scores_ZOE_ranks_disease_dataset.tsv', sep='\t', header=0, index_col=0, low_memory=False)
-
-        if (not os.path.exists('../cardiometabolic_scores_zoe.tsv')) or (not os.path.exists('../diet_scores_zoe.tsv')):
-            raise FileNotFoundError('the files cardiometabolic_scores_zoe.tsv and diet_scores_zoe.tsv msut be found in the parent directory.')
+        if (not os.path.exists('../ZOE_Microbiome_Ranking_2025__Cardiometabolic_Health__and__Diet.csv')):
+            raise FileNotFoundError('the file ZOE_Microbiome_Ranking_2025__Cardiometabolic_Health__and__Diet.csv must be found in the parent directory.')
             exit(1)
  
-        cardi0_sc0res = pd.read_csv( '../cardiometabolic_scores_zoe.tsv', sep="\t", header=0, index_col=0)["mean_atleast2"].dropna()
-        diet_sc0res = pd.read_csv( '../diet_scores_zoe.tsv', sep="\t", header=0, index_col=0)["mean_atleast2"].dropna()
+        scoreFile = pd.read_csv('../ZOE_Microbiome_Ranking_2025__Cardiometabolic_Health__and__Diet.csv', sep=',', header=0, index_col=0)
+        cardi0_sc0res = scoreFile[ 'ZOE MB Health-rank' ].dropna()
+        diet_sc0res = scoreFile[ 'ZOE MB Diet-rank' ].dropna()
 
-        self.cardi0_sc0res = cardi0_sc0res.sort_values()
-        self.diet_sc0res   = diet_sc0res.sort_values()
+        cardi0_sc0res = cardi0_sc0res.sort_values()
+        diet_sc0res   = diet_sc0res.sort_values()
+
+        self.cardi0_sc0res = cardi0_sc0res
+        self.diet_sc0res = diet_sc0res
 
         print(self.cardi0_sc0res.shape, "\n-->Number of cardio SGBs")
         print(self.diet_sc0res.shape, "\n-->Number of diet SGBs")
+
+        self_disease_data = pd.read_csv('../public_data_profiles/all_normalized_scores_ZOE_ranks_disease_dataset.tsv', sep='\t', header=0, index_col=0, low_memory=False)
+
+
+
 
 
 
@@ -64,42 +73,19 @@ class ZOE_scores_on_BMI(object):
         self.abs = Abundance() ## self.abs.relab_OUT
 
         ## BMI
-        self.all_datasets_BMI = pd.read_csv("../public_data_profiles/Healthy_Subject_Data_Table_Jan21.tsv", sep="\t", header=0, index_col=0, low_memory=False)
- 
-        self.sgbs = [i for i in self.all_datasets_BMI.index if ("t__" in i)]
-        self.sgbs_codes = [s.split("|")[-1][3:] for s in self.sgbs]
-        self.sgbs_namer = dict([(i.split("|")[-1][3:], "|".join(i.split("|")[-2:])) for i in self.sgbs])
-        self.all_datasets_BMI.rename(index=dict([(i, i.split("|")[-1][3:]) for i in self.sgbs]), inplace=True)
-        self.all_datasets_BMI = self.all_datasets_BMI.loc[ ["age", "BMI", "gender", "country", "study_name"] + self.sgbs_codes ] 
-
-        print(len(self.all_datasets_BMI.loc["study_name"].tolist()))
-        print(len(self.all_datasets_BMI.loc["country"].tolist()))
-
-        self.all_datasets_BMI.loc["study_identifier"] = [((dt + "_in_" + cn) if dt!="KarlssonFH_2013" else dt+"_in_SWE") for dt,cn in zip(\
-            self.all_datasets_BMI.loc["study_name"].tolist(), self.all_datasets_BMI.loc["country"].tolist())]
-
-        self.all_datasets_BMI = self.all_datasets_BMI.rename(index={"gender": "sex"})
         self.metadata = ["sex", "age", "BMI"]
-        self.all_datasets_BMI.loc["sex"] = [(1. if s=="male" else 0.0) for s in self.all_datasets_BMI.loc["sex"].tolist()]
 
         ## OUTCOMES
-        self.all_datasets_OUT = pd.read_csv("../public_data_profiles/CaseControl_Subject_Data_Table_Jan21.tsv", sep="\t", header=0, index_col=0, low_memory=False)
+        self.all_datasets_OUT = self.abs.relab_OUT.copy()
+        self.OUT_sgbs = [i for i in self.all_datasets_OUT.index if i.startswith("SGB") or i.startswith("EUK") ]
+
+        self.all_datasets_OUT = self.all_datasets_OUT.loc[ [ "age", "BMI", "sex", "country", "study_condition", "study_name", "disease_subtype" ] + self.OUT_sgbs ]
  
-        self.OUT_sgbs = [i for i in self.all_datasets_OUT.index if ("t__" in i)]
-        self.OUT_sgbs_codes = [s.split("|")[-1][3:] for s in self.OUT_sgbs]
-        self.OUT_sgbs_namer = dict([(i.split("|")[-1][3:], "|".join(i.split("|")[-2:])) for i in self.OUT_sgbs])
-        self.all_datasets_OUT.rename(index=dict([(i, i.split("|")[-1][3:]) for i in self.OUT_sgbs]), inplace=True)
-        self.all_datasets_OUT = self.all_datasets_OUT.loc[ [ "age", "BMI", "gender", "country", "study_condition", "study_name", "disease_subtype" ] + self.OUT_sgbs_codes ]
-
-        print(len(self.all_datasets_OUT.loc["study_name"].tolist()))
-        print(len(self.all_datasets_OUT.loc["country"].tolist()))
-
         self.all_datasets_OUT.loc["study_identifier"] = [((dt + "_in_" + cn) if dt!="KarlssonFH_2013" else dt+"_in_SWE") for dt,cn in zip(\
           self.all_datasets_OUT.loc["study_name"].tolist(), self.all_datasets_OUT.loc["country"].tolist())]
         self.all_datasets_OUT.loc["target_condition"] = [("case" if cd!="control" else "control") for cd in \
           self.all_datasets_OUT.loc["study_condition"].tolist()]
-
-        self.all_datasets_OUT = self.all_datasets_OUT.rename(index={"gender": "sex"})
+ 
         self.metadata_OUT = ["BMI", "target_condition", "study_condition", "sex", "age"]
         self.all_datasets_OUT.loc["sex"] = [(1. if s=="male" else 0.0) for s in self.all_datasets_OUT.loc["sex"].tolist()]
         self.all_datasets_OUT.loc["study_condition"] = [(std if std!="IBD" else disub) for std,disub in zip(\
@@ -109,7 +95,6 @@ class ZOE_scores_on_BMI(object):
         self.Diet_SGBs   = self.abs.diet_sc0res.index.tolist()
 
         self.data = pd.read_csv('../public_data_profiles/all_normalized_scores_ZOE_ranks_disease_dataset.tsv', sep="\t", header=0, index_col=0, low_memory=False)
-        self.data_pairs = pd.read_csv('../disease_dataset_pairs.txt', sep="\t", header=0, index_col=0)
 
 
 
@@ -232,7 +217,7 @@ class ZOE_scores_on_BMI(object):
         else:
             top50, bot50 = self.Diet_SGBs[ :50 ], self.Diet_SGBs[ -50: ]
 
-        analyses = [("normal", "overweight"), ("normal", "obese"), ("overweight", "obese")]
+        analyses = [("healthy-weight", "overweight"), ("healthy-weight", "obese"), ("overweight", "obese")]
         meta_ana_def = "overall std. mean diff." if not counts else "overall mean difference"
 
         for class_a,class_b in analyses:
@@ -257,12 +242,13 @@ class ZOE_scores_on_BMI(object):
                     else:
                         res_top = pd.concat([res_top, ma])
                 else:
-                    print(len(studies), study, " IS STRING")
+                    pass
+                    ## print(len(studies), study, " IS STRING")
 
             print(res_top)
  
             ma = generalized_meta_analysis( res_top["effect"], res_top["std_err"]**2., res_top["p-val"], res_top.index.tolist(), \
-                res_top["n_ctrs"], res_top["n_cases"], "First 50", HET="PM" )
+                res_top["n_ctrs"], res_top["n_cases"], "50 top favorable", HET="PM" )
 
             #_,fdr = fdrcorrection(res_top["p-val"])
             #res_top["q-val"] = fdr
@@ -289,7 +275,7 @@ class ZOE_scores_on_BMI(object):
                         res_bot = pd.concat([res_bot, ma])
  
             ma = generalized_meta_analysis( res_bot["effect"], res_bot["std_err"]**2., res_bot["p-val"], res_bot.index.tolist(), \
-                res_bot["n_ctrs"], res_bot["n_cases"], "Last 50", HET="PM" )
+                res_bot["n_ctrs"], res_bot["n_cases"], "50 most unfavorable", HET="PM" )
 
             #_,fdr = fdrcorrection(res_bot["p-val"])
             #res_bot["q-val"] = fdr
@@ -310,34 +296,35 @@ class ZOE_scores_on_BMI(object):
 
 ###**** END BLOCK OF BMI ***
 
-    def get_cors_rec(self, on_diet=False):
-        OUTFILE = "complete_corre_table_for_BMI_on-Cardio.tsv" if not on_diet else "complete_corre_table_for_BMI_on-Diet.tsv"
-        res_on_BMI = []
-        scored_sgbs = self.Cardio_SGBs if not on_diet else self.Diet_SGBs
-        for SGB in scored_sgbs:
-            for dataset in self.all_datasets_BMI.loc["study_identifier"].unique():
-                cor_frame = self.get_a_pcorr( dataset, SGB )
-                if not isinstance(cor_frame, str):
-                    print(cor_frame)
-                    if not len(res_on_BMI):
-                        res_on_BMI = cor_frame
-                    else:
-                        res_on_BMI = pd.concat([res_on_BMI, cor_frame])
-        _,fdr = fdrcorrection(res_on_BMI["p-val"].values.astype(float), alpha=0.05)
-        res_on_BMI.insert(3, "FDR-q-val", fdr)
-        res_on_BMI.to_csv(os.path.join("../temporary/", OUTFILE), sep="\t", header=True, index=True)
+    #def get_cors_rec(self, on_diet=False):
+    #    OUTFILE = "complete_corre_table_for_BMI_on-Cardio.tsv" if not on_diet else "complete_corre_table_for_BMI_on-Diet.tsv"
+    #    res_on_BMI = []
+    #    scored_sgbs = self.Cardio_SGBs if not on_diet else self.Diet_SGBs
+    #    for SGB in scored_sgbs:
+    #        for dataset in self.all_datasets_BMI.loc["study_identifier"].unique():
+    #            cor_frame = self.get_a_pcorr( dataset, SGB )
+    #            if not isinstance(cor_frame, str):
+    #                print(cor_frame)
+    #                if not len(res_on_BMI):
+    #                    res_on_BMI = cor_frame
+    #                else:
+    #                    res_on_BMI = pd.concat([res_on_BMI, cor_frame])
+    #    _,fdr = fdrcorrection(res_on_BMI["p-val"].values.astype(float), alpha=0.05)
+    #    res_on_BMI.insert(3, "FDR-q-val", fdr)
+    #    res_on_BMI.to_csv(os.path.join("../temporary/", OUTFILE), sep="\t", header=True, index=True)
+ 
+    #def perform_meta_analysis_on_one_SGB(self, SGB, dataframe):
+    #    sgb_frame = dataframe.loc[dataframe["SGB"] == SGB]
+    #    if len(sgb_frame) >= 3:
+    #        median_rho = np.median(sgb_frame["r"].values.astype(float))
+    #        ma = meta_analysis(np.arctanh(sgb_frame["r"].values.astype(float)), \
+    #            sgb_frame["FDR-q-val"].values.astype(float), sgb_frame["study"].tolist(), None, None, SGB, EFF="precomputed", \
+    #            variances_from_outside=[(1/(n-3)) for n in sgb_frame["n"].values.astype(float)], CI=False, HET="DL")
+    #        meta_an = {"effect": np.arctanh(ma.RE), "std_err": np.arctanh(ma.stdErr), "p-val": ma.Pval, \
+    #            "med.r": median_rho, "95% CI": "|".join(list(map(str, np.arctanh(ma.conf_int))))}
+    #        return pd.DataFrame(meta_an, index=[SGB])
+    #    return "TO_FEW"
 
-    def perform_meta_analysis_on_one_SGB(self, SGB, dataframe):
-        sgb_frame = dataframe.loc[dataframe["SGB"] == SGB]
-        if len(sgb_frame) >= 3:
-            median_rho = np.median(sgb_frame["r"].values.astype(float))
-            ma = meta_analysis(np.arctanh(sgb_frame["r"].values.astype(float)), \
-                sgb_frame["FDR-q-val"].values.astype(float), sgb_frame["study"].tolist(), None, None, SGB, EFF="precomputed", \
-                variances_from_outside=[(1/(n-3)) for n in sgb_frame["n"].values.astype(float)], CI=False, HET="DL")
-            meta_an = {"effect": np.arctanh(ma.RE), "std_err": np.arctanh(ma.stdErr), "p-val": ma.Pval, \
-                "med.r": median_rho, "95% CI": "|".join(list(map(str, np.arctanh(ma.conf_int))))}
-            return pd.DataFrame(meta_an, index=[SGB])
-        return "TO_FEW"
 
 
 
@@ -347,7 +334,8 @@ class ZOE_scores_on_BMI(object):
  
         sam_ctrs = self.data.loc[ score, (self.data.loc["study_condition"]=="control") & (self.data.loc["study_identifier"]==study) ].index.tolist()
         sam_cases= self.data.loc[ score, (self.data.loc["study_condition"]==disease) & (self.data.loc["study_identifier"]==study) ].index.tolist()
- 
+
+
         if len(dataset_frame) >= 3:
             nctrs, ncases = len(ctrs), len(cases)
             datast = pd.DataFrame({ \
@@ -360,7 +348,7 @@ class ZOE_scores_on_BMI(object):
             if len(datast["sex"].unique()) == 1:
                 md = smf.ols('%s ~ C(condition, Treatment("no")) + BMI + age' %score, data=datast)
             else:
-                md = smf.ols('%s ~ C(condition, Treatment("no")) + BMI + age + C(sex, Treatment("female"))' %score, data=datast)
+                md = smf.ols('%s ~ C(condition, Treatment("no")) + age + BMI + C(sex, Treatment("female"))' %score, data=datast)
 
             model_fit = md.fit()
 
@@ -391,22 +379,23 @@ class ZOE_scores_on_BMI(object):
         return "TO_FEW"
 
 
-    def perform_plain_meta_analysis_on_BMI(self, BMI_dataframe, on_diet=False):
-        outfile = "BMI_analysis/synthetic_table_of_meta_analysis_on_BMI_plain_%s.tsv" %("on-Cardio" if not on_diet else "on-Diet")
-        res = []
-        for sgb in BMI_dataframe["SGB"].unique().tolist():
-            mm = self.perform_meta_analysis_on_one_SGB(sgb, BMI_dataframe)
-            if not isinstance(mm, str):
-                if not len(res):
-                    res = mm
-                else:
-                    res = res.append(mm)
-        _,fdr = fdrcorrection(res["p-val"].values.astype(float), alpha=0.05)
-        res.insert(4, "FDR-q-val", fdr)
-        res["a"], res["b"] = [(0 if q<SIGN_TH else 1) for q in res["FDR-q-val"].values], np.abs(res["effect"].values)
-        res.sort_values(by=["a", "b"], ascending=[True, False], inplace=True)
-        del res["a"]; del res["b"]
-        res.to_csv(outfile, sep="\t", header=True, index=True)
+
+    #def perform_plain_meta_analysis_on_BMI(self, BMI_dataframe, on_diet=False):
+    #    outfile = "BMI_analysis/synthetic_table_of_meta_analysis_on_BMI_plain_%s.tsv" %("on-Cardio" if not on_diet else "on-Diet")
+    #    res = []
+    #    for sgb in BMI_dataframe["SGB"].unique().tolist():
+    #        mm = self.perform_meta_analysis_on_one_SGB(sgb, BMI_dataframe)
+    #        if not isinstance(mm, str):
+    #            if not len(res):
+    #                res = mm
+    #            else:
+    #                res = res.append(mm)
+    #    _,fdr = fdrcorrection(res["p-val"].values.astype(float), alpha=0.05)
+    #    res.insert(4, "FDR-q-val", fdr)
+    #    res["a"], res["b"] = [(0 if q<SIGN_TH else 1) for q in res["FDR-q-val"].values], np.abs(res["effect"].values)
+    #    res.sort_values(by=["a", "b"], ascending=[True, False], inplace=True)
+    #    del res["a"]; del res["b"]
+    #    res.to_csv(outfile, sep="\t", header=True, index=True)
 
 
 
@@ -418,10 +407,13 @@ class ZOE_scores_on_BMI(object):
 
         for study,disease in zip(OUT_dataframe["study"].tolist(), OUT_dataframe["disease"].tolist()):
 
-            if study in ["FengQ_2015_in_AUT", "GuptaA_2019_in_IND", "HanniganGD_2017_in_USA", "HanniganGD_2017_in_CAN", "HeQ_2017_in_CHN", "JieZ_2017_in_CHN", "KarlssonFH_2013_in_SWE", \
-                "MetaCardis_2020_a_in_FRA", "MetaCardis_2020_a_in_DEU", "NielsenHB_2014_in_DNK", "NielsenHB_2014_in_ESP", "QinJ_2012_in_CHN", "QinN_2014_in_CHN", "ThomasAM_2018a_in_ITA", \
-                "ThomasAM_2018b_in_ITA", "VogtmannE_2016_in_USA", "WirbelJ_2018_in_DEU", "XuQ_2021_in_CHN", "YachidaS_2019_in_JPN", "YuJ_2015_in_CHN", "ZellerG_2014_in_FRA", \
-                "SankaranarayananK_2015_in_USA"]:
+            if study in ["FengQ_2015_in_AUT", "GuptaA_2019_in_IND", "HanniganGD_2017_in_USA", \
+                "HanniganGD_2017_in_CAN", "HeQ_2017_in_CHN", "JieZ_2017_in_CHN", "KarlssonFH_2013_in_SWE", \
+                "MetaCardis_2020_a_in_FRA", "MetaCardis_2020_a_in_DEU", "NielsenHB_2014_in_DNK", \
+                "NielsenHB_2014_in_ESP", "ThomasAM_2018a_in_ITA", \
+                "ThomasAM_2018b_in_ITA", "VogtmannE_2016_in_USA", "WirbelJ_2018_in_DEU",    
+                "XuQ_2021_in_CHN", "YachidaS_2019_in_JPN", "QinJ_2012_in_CHN", \
+                "YuJ_2015_in_CHN", "ZellerG_2014_in_FRA", "SankaranarayananK_2015_in_USA"]:
 
                 if not (study,disease) in combos:
                     combos.add((study,disease))
@@ -512,24 +504,32 @@ class ZOE_scores_on_BMI(object):
 
 
 
-    def main(self): 
- 
-        ## self.get_diff_rec(on_diet=False)
-        ## self.get_diff_rec(on_diet=True)
- 
-        ## OUT_dataframe_Cardio = pd.read_csv("../temporary/complete_corre_table_for_OUTCOMES_on-Cardio.tsv", sep="\t", header=0, index_col=None, low_memory=False)
-        ## OUT_dataframe_Diet = pd.read_csv("../temporary/complete_corre_table_for_OUTCOMES_on-Diet.tsv", sep="\t", header=0, index_col=None, low_memory=False)
- 
-        ##for score in [ 'count_of_good_cardio', 'count_of_bad_cardio', 'cumul_of_good_cardio', 'cumul_of_bad_cardio', \
-        ##    'count_of_good_diet', 'count_of_bad_diet', 'cumul_of_good_diet', 'cumul_of_bad_diet', \
-        ##    "cardio_minusone_to_one_arcsin", "diet_minusone_to_one_arcsin", "cardio_minusone_to_one_weig", "diet_minusone_to_one_weig" ]:
-
-        ##    for frame in [OUT_dataframe_Cardio, OUT_dataframe_Diet]:
-        ##        self.perform_meta_analysis_on_outcomes_aggregated(OUT_dataframe_Cardio, score, "ORDINARY", counts=False, adj=True)
+    def disease_block(self):  
+        self.get_diff_rec(on_diet=False)
+        self.get_diff_rec(on_diet=True)
+   
+        OUT_dataframe_Cardio = pd.read_csv("../temporary/complete_corre_table_for_OUTCOMES_on-Cardio.tsv", sep="\t", header=0, index_col=None, low_memory=False)
+        OUT_dataframe_Diet = pd.read_csv("../temporary/complete_corre_table_for_OUTCOMES_on-Diet.tsv", sep="\t", header=0, index_col=None, low_memory=False)
   
+        for score in [ \
+            'count_of_good_cardio', 'count_of_bad_cardio', 'count_of_good_diet', 'count_of_bad_diet', \
+            'cumul_of_good_cardio', 'cumul_of_bad_cardio', 'cumul_of_good_diet', 'cumul_of_bad_diet', \
+            'cardio_minusone_to_one', 'diet_minusone_to_one', 'cardio_minusone_to_one_arcsin', 'diet_minusone_to_one_arcsin' ]:
+ 
+            self.perform_meta_analysis_on_outcomes_aggregated(\
+                OUT_dataframe_Cardio if score.endswith('cardio') else OUT_dataframe_Diet, \
+                score, "ORDINARY", counts=score.startswith('count'), adj=True )
+
+
+    def BMI_block(self):
         self.perform_meta_analysis_on_BMI_aggregated("ORDINARY", on_diet=False, counts=True, adj=True)
         self.perform_meta_analysis_on_BMI_aggregated("ORDINARY", on_diet=True, counts=True, adj=True)
 
+        self.perform_meta_analysis_on_BMI_aggregated("ORDINARY", on_diet=False, counts=False, adj=True)
+        self.perform_meta_analysis_on_BMI_aggregated("ORDINARY", on_diet=True, counts=False, adj=True)
+
+
 if __name__ == "__main__":
     ZsoB = ZOE_scores_on_BMI()
-    ZsoB.main()
+    ZsoB.BMI_block()
+    ZsoB.disease_block()

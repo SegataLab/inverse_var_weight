@@ -13,26 +13,22 @@ from meta_analyses import generalized_meta_analysis as GMA
 
 SIGN_TH=0.05
 
-class pooled_analyses(object):
+class pooled_analyses(object): ## count_good_cardio count_bad_cardio cumul_good_cardio cumul_bad_cardio count_good_diet count_bad_diet cumul_good_diet cumul_bad_diet
     analyses = {
-        "cardio_minusone_to_one": "../input_tables_scores/cardio_minusone_to_one_cardiometabolic_and_gut_related.tsv",
-        "diet_minusone_to_one": "../input_tables_scores/diet_minusone_to_one_cardiometabolic_and_gut_related.tsv",
-        "cardio_minusone_to_one_weig": "../input_tables_scores/cardio_minusone_to_one_weig_cardiometabolic_and_gut_related.tsv",
-        "diet_minusone_to_one_weig": "../input_tables_scores/diet_minusone_to_one_weig_cardiometabolic_and_gut_related.tsv",
-        "cardio_zero_to_one_bad": "../input_tables_scores/cardio_zero_to_one_bad_cardiometabolic_and_gut_related.tsv",    
-        "diet_zero_to_one_bad": "../input_tables_scores/diet_zero_to_one_bad_cardiometabolic_and_gut_related.tsv",
-        "cardio_zero_to_one_bad_weig": "../input_tables_scores/cardio_zero_to_one_bad_weig_cardiometabolic_and_gut_related.tsv",
-        "diet_zero_to_one_bad_weig": "../input_tables_scores/diet_zero_to_one_bad_weig_cardiometabolic_and_gut_related.tsv",
-        "cardio_zero_to_one_good": "../input_tables_scores/cardio_zero_to_one_good_cardiometabolic_and_gut_related.tsv",
-        "diet_zero_to_one_good": "../input_tables_scores/diet_zero_to_one_good_cardiometabolic_and_gut_related.tsv",
-        "cardio_zero_to_one_good_weig": "../input_tables_scores/cardio_zero_to_one_good_weig_cardiometabolic_and_gut_related.tsv",
-        "diet_zero_to_one_good_weig": "../input_tables_scores/diet_zero_to_one_good_weig_cardiometabolic_and_gut_related.tsv",
-        "cardio_minusone_to_one_arcsin": "../input_tables_scores/cardio_minusone_to_one_arcsin_cardiometabolic_and_gut_related.tsv",
-        "diet_minusone_to_one_arcsin": "../input_tables_scores/diet_minusone_to_one_arcsin_cardiometabolic_and_gut_related.tsv",
-        "cardio_zero_to_one_bad_arcsin": "../input_tables_scores/cardio_zero_to_one_bad_arcsin_cardiometabolic_and_gut_related.tsv",
-        "diet_zero_to_one_bad_arcsin": "../input_tables_scores/diet_zero_to_one_bad_arcsin_cardiometabolic_and_gut_related.tsv",
-        "cardio_zero_to_one_good_arcsin": "../input_tables_scores/cardio_zero_to_one_good_arcsin_cardiometabolic_and_gut_related.tsv",
-        "diet_zero_to_one_good_arcsin": "../input_tables_scores/diet_zero_to_one_good_arcsin_cardiometabolic_and_gut_related.tsv"
+        "cardio_minusone_to_one": "../temporary/cardio_minusone_to_one_cardiometabolic_and_gut_related.tsv",
+        "diet_minusone_to_one": "../temporary/diet_minusone_to_one_cardiometabolic_and_gut_related.tsv",
+        "cardio_minusone_to_one_arcsin": "../temporary/cardio_minusone_to_one_arcsin_cardiometabolic_and_gut_related.tsv",
+        "diet_minusone_to_one_arcsin": "../temporary/diet_minusone_to_one_arcsin_cardiometabolic_and_gut_related.tsv",
+        \
+        "count_good_cardio": "../temporary/count_of_good_cardio_MND_cardiometabolic_and_gut_related.tsv",
+        "count_bad_cardio" : "../temporary/count_of_bad_cardio_MND_cardiometabolic_and_gut_related.tsv", 
+        "cumul_good_cardio" : "../temporary/cumul_of_good_cardio_SMD_cardiometabolic_and_gut_related.tsv",
+        "cumul_bad_cardio" : "../temporary/cumul_of_bad_cardio_SMD_cardiometabolic_and_gut_related.tsv",
+        \
+        "count_good_diet": "../temporary/count_of_good_diet_MND_cardiometabolic_and_gut_related.tsv",
+        "count_bad_diet": "../temporary/count_of_bad_diet_MND_cardiometabolic_and_gut_related.tsv",
+        "cumul_good_diet": "../temporary/cumul_of_good_diet_SMD_cardiometabolic_and_gut_related.tsv",
+        "cumul_bad_diet": "../temporary/cumul_of_bad_diet_SMD_cardiometabolic_and_gut_related.tsv",
     }
 
     CRC = ["FengQ_2015_in_AUT-CRC", "GuptaA_2019_in_IND-CRC", "HanniganGD_2017_in_USA-CRC", "ThomasAM_2018a_in_ITA-CRC", "ThomasAM_2018b_in_ITA-CRC", \
@@ -45,15 +41,23 @@ class pooled_analyses(object):
 
     def __init__(self, analysis, SMD):
         the_biggest_ever = []
-        ma = self.analyses[analysis].replace("_cardiometabolic", "_SMD_cardiometabolic" if SMD else "_MND_cardiometabolic")
-        cov_met = "standardized_mean_difference" if SMD else "linsullivan"
+
+        if (not "count" in analysis) and (not "cumul" in analysis):
+            ma = self.analyses[analysis].replace("_cardiometabolic", "_SMD_cardiometabolic" if SMD else "_MND_cardiometabolic")
+            cov_met = "standardized_mean_difference" if SMD else "linsullivan"
  
-        #cov_met = "linsullivan"
+            OUTFILE = "../pooling_disease_meta_analyses/summary_%s_%s.tsv" %(analysis, "SMD" if SMD else "MND")
+            self.ma = pd.read_csv(ma, sep="\t", header=0, index_col=0, low_memory=False)
+            print(self.ma)
 
+        else:
+            ma = self.analyses[analysis]
+            cov_met = "standardized_mean_difference" if not "count" in ma else "linsullivan"
 
-        OUTFILE = "latest_analyses/summary_%s_%s.tsv" %(analysis, "SMD" if SMD else "MND")
-        self.ma = pd.read_csv(ma, sep="\t", header=0, index_col=0, low_memory=False)
-        print(self.ma)
+            OUTFILE = "../pooling_disease_meta_analyses/summary_%s_%s.tsv" %(analysis, "SMD" if not "count" in ma else "MND")
+            self.ma = pd.read_csv(ma, sep="\t", header=0, index_col=0, low_memory=False)
+            print(self.ma)
+
 
         self.ma_ACVD = GMA( \
             self.ma.loc[self.ACVD, "effect"].values.astype(float), \
@@ -120,7 +124,6 @@ class pooled_analyses(object):
         # ****************************************
 
         print("Ultima")
-
         
         self.random_stage = GMA( \
             self.ma.loc[self.T2D + self.IGT + self.ACVD + self.CRC + self.IBD, "effect"].astype(float), \
@@ -191,16 +194,9 @@ class pooled_analyses(object):
 
 
 def main():
-    for score in [ \
-        "cardio_zero_to_one_good", "cardio_zero_to_one_bad", "cardio_minusone_to_one", \
-        "cardio_zero_to_one_good_weig", "cardio_zero_to_one_bad_weig", "cardio_minusone_to_one_weig", \
-        "diet_zero_to_one_good", "diet_zero_to_one_bad", "diet_minusone_to_one", \
-        "diet_zero_to_one_good_weig", "diet_zero_to_one_bad_weig", "diet_minusone_to_one_weig", \
-        "cardio_zero_to_one_good_arcsin", "cardio_zero_to_one_bad_arcsin", "cardio_minusone_to_one_arcsin", \
-        "diet_zero_to_one_good_arcsin", "diet_zero_to_one_bad_arcsin", "diet_minusone_to_one_arcsin"]:
-
+    for score in [ "cardio_minusone_to_one", "cardio_minusone_to_one_arcsin", "diet_minusone_to_one", "diet_minusone_to_one_arcsin"] + \
+        "count_good_cardio count_bad_cardio cumul_good_cardio cumul_bad_cardio count_good_diet count_bad_diet cumul_good_diet cumul_bad_diet".split():
         p = pooled_analyses(score, True)
-        ###p = pooled_analyses(score, False)
 
 
 if __name__ == "__main__":
