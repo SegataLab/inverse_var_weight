@@ -2,7 +2,7 @@
 
 import pandas as pd
 import numpy as np
-import sys, os, glob
+import sys, os
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import fdrcorrection
